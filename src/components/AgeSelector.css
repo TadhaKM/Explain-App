@@ -1,0 +1,92 @@
+.age-selector {
+  background: white;
+  border-radius: 15px;
+  padding: 15px 20px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+}
+
+.age-selector-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  font-weight: 600;
+  color: #333;
+  font-size: 1rem;
+}
+
+.header-emoji {
+  font-size: 1.3rem;
+}
+
+.age-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.age-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 15px 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.age-btn:hover {
+  border-color: #667eea;
+  transform: translateY(-2px);
+}
+
+.age-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.age-btn.active .age-label,
+.age-btn.active .age-description {
+  color: white;
+}
+
+.age-emoji {
+  font-size: 1.8rem;
+}
+
+.age-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #333;
+}
+
+.age-description {
+  font-size: 0.7rem;
+  color: #888;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .age-buttons {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .age-btn {
+    padding: 12px 8px;
+  }
+
+  .age-emoji {
+    font-size: 1.5rem;
+  }
+
+  .age-label {
+    font-size: 0.75rem;
+  }
+
+  .age-description {
+    font-size: 0.65rem;
+  }
+}
