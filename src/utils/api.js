@@ -1,102 +1,216 @@
-import OpenAI from 'openai'
+/**
+ * Frontend API Client
+ *
+ * SECURITY: This client communicates with our secure backend server.
+ * - API key is NEVER exposed to the client
+ * - All requests go through the backend which handles OpenAI calls
+ * - Session ID is used for rate limiting (not authentication)
+ * - Input validation happens both client-side (UX) and server-side (security)
+ */
+
+import { v4 as uuidv4 } from 'uuid'
+
+// =============================================================================
+// SESSION MANAGEMENT
+// =============================================================================
 
 /**
- * Get the system prompt based on age level
+ * Get or create a session ID for rate limiting
+ *
+ * SECURITY NOTE: This is NOT for authentication, only for rate limiting.
+ * It helps prevent abuse from a single browser session.
+ *
+ * @returns {string} UUID session ID
  */
-function getSystemPrompt(ageLevel, isReExplain = false) {
-  const basePrompts = {
-    5: `You are a friendly, patient teacher explaining things to a 5-year-old child.
+function getSessionId() {
+  let sessionId = sessionStorage.getItem('eli5_session_id')
 
-Rules:
-- Use VERY simple words (no big or technical words)
-- Keep sentences SHORT (5-10 words max)
-- Use examples from daily life: toys, animals, food, family
-- Use comparisons to things kids know
-- Be warm, encouraging, and use a playful tone
-- Include 1-2 relevant emojis in your response
-- If explaining something abstract, use a story or analogy
-- Never use jargon or complex terminology`,
-
-    10: `You are a patient teacher explaining things to a 10-year-old student.
-
-Rules:
-- Use simple, clear language
-- Keep sentences fairly short
-- Use real-world examples kids can relate to
-- You can introduce some basic terms, but always explain them
-- Be friendly and encouraging
-- Include 1-2 relevant emojis
-- Use analogies when helpful`,
-
-    15: `You are explaining things to a curious teenager.
-
-Rules:
-- Use clear, accessible language
-- You can use some technical terms if you explain them briefly
-- Include interesting details and context
-- Use relatable examples
-- Be conversational but informative
-- Include relevant emojis sparingly`,
-
-    20: `You are providing a clear, well-organized explanation.
-
-Rules:
-- Use appropriate terminology with brief explanations when needed
-- Provide comprehensive but digestible information
-- Include relevant examples
-- Be informative and engaging
-- Structure your response clearly`
+  if (!sessionId) {
+    sessionId = uuidv4()
+    sessionStorage.setItem('eli5_session_id', sessionId)
   }
 
-  const simplerAddition = isReExplain ? `
+  return sessionId
+}
 
-IMPORTANT: The user asked for an EVEN SIMPLER explanation. Make this one MUCH simpler than before:
-- Use even shorter sentences
-- Use even more basic vocabulary
-- Add more analogies and examples
-- Make it fun and engaging` : ''
+// =============================================================================
+// INPUT VALIDATION (Client-side)
+// =============================================================================
 
-  return (basePrompts[ageLevel] || basePrompts[20]) + simplerAddition
+/**
+ * Client-side input validation
+ *
+ * SECURITY: This is for UX only. Server performs authoritative validation.
+ * Client validation prevents unnecessary API calls for obviously invalid input.
+ */
+const VALIDATION_RULES = {
+  maxQuestionLength: 2000,
+  allowedAgeLevels: [5, 10, 15, 20]
 }
 
 /**
- * Get AI response from OpenAI
+ * Validate question input before sending to server
+ *
+ * @param {string} question - User's question
+ * @throws {Error} If validation fails
  */
-export async function getAIResponse(question, ageLevel, apiKey, isReExplain = false) {
-  const openai = new OpenAI({
-    apiKey: apiKey,
-    dangerouslyAllowBrowser: true // Required for client-side usage
+function validateQuestion(question) {
+  if (!question || typeof question !== 'string') {
+    throw new Error('Question is required')
+  }
+
+  const trimmed = question.trim()
+
+  if (trimmed.length === 0) {
+    throw new Error('Question cannot be empty')
+  }
+
+  if (trimmed.length > VALIDATION_RULES.maxQuestionLength) {
+    throw new Error(`Question is too long (max ${VALIDATION_RULES.maxQuestionLength} characters)`)
+  }
+
+  return trimmed
+}
+
+/**
+ * Validate age level
+ *
+ * @param {number} ageLevel - Selected age level
+ * @throws {Error} If validation fails
+ */
+function validateAgeLevel(ageLevel) {
+  if (!VALIDATION_RULES.allowedAgeLevels.includes(ageLevel)) {
+    throw new Error('Invalid age level')
+  }
+
+  return ageLevel
+}
+
+// =============================================================================
+// API CALLS
+// =============================================================================
+
+/**
+ * Make a request to the backend API
+ *
+ * @param {string} endpoint - API endpoint (e.g., '/api/chat/explain')
+ * @param {Object} options - Fetch options
+ * @returns {Promise<Object>} Response data
+ */
+async function apiRequest(endpoint, options = {}) {
+  const sessionId = getSessionId()
+
+  const response = await fetch(endpoint, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Session-ID': sessionId,
+      ...options.headers
+    }
   })
 
-  const systemPrompt = getSystemPrompt(ageLevel, isReExplain)
-
-  const userPrompt = isReExplain
-    ? `Please explain this even more simply: "${question}"`
-    : question
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 500
-    })
-
-    return response.choices[0].message.content
-  } catch (error) {
-    console.error('OpenAI API Error:', error)
-
-    if (error.status === 401) {
-      throw new Error('Invalid API key. Please check your OpenAI API key.')
-    } else if (error.status === 429) {
-      throw new Error('Rate limit exceeded. Please wait a moment and try again.')
-    } else if (error.status === 500) {
-      throw new Error('OpenAI server error. Please try again later.')
-    }
-
-    throw new Error('Failed to get response. Please try again.')
+  // Handle rate limiting
+  if (response.status === 429) {
+    const data = await response.json()
+    const retryAfter = data.retryAfter || 60
+    throw new RateLimitError(
+      `Too many requests. Please wait ${retryAfter} seconds.`,
+      retryAfter
+    )
   }
+
+  // Handle validation errors
+  if (response.status === 400) {
+    const data = await response.json()
+    throw new ValidationError(data.message || 'Invalid request', data.details)
+  }
+
+  // Handle server errors
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.message || 'An error occurred. Please try again.')
+  }
+
+  return response.json()
+}
+
+// =============================================================================
+// CUSTOM ERROR CLASSES
+// =============================================================================
+
+/**
+ * Error thrown when rate limit is exceeded
+ */
+export class RateLimitError extends Error {
+  constructor(message, retryAfter) {
+    super(message)
+    this.name = 'RateLimitError'
+    this.retryAfter = retryAfter
+  }
+}
+
+/**
+ * Error thrown when validation fails
+ */
+export class ValidationError extends Error {
+  constructor(message, details) {
+    super(message)
+    this.name = 'ValidationError'
+    this.details = details
+  }
+}
+
+// =============================================================================
+// PUBLIC API FUNCTIONS
+// =============================================================================
+
+/**
+ * Get AI explanation for a question
+ *
+ * @param {string} question - The question to explain
+ * @param {number} ageLevel - Target age level (5, 10, 15, or 20)
+ * @param {boolean} isReExplain - Whether this is a re-explanation request
+ * @returns {Promise<string>} AI response
+ */
+export async function getAIResponse(question, ageLevel, isReExplain = false) {
+  // Client-side validation (for UX)
+  const validatedQuestion = validateQuestion(question)
+  const validatedAgeLevel = validateAgeLevel(ageLevel)
+
+  // Make API request to secure backend
+  const data = await apiRequest('/api/chat/explain', {
+    method: 'POST',
+    body: JSON.stringify({
+      question: validatedQuestion,
+      ageLevel: validatedAgeLevel,
+      isReExplain
+    })
+  })
+
+  if (!data.success) {
+    throw new Error(data.message || 'Failed to get response')
+  }
+
+  return data.response
+}
+
+/**
+ * Check if the chat service is available
+ *
+ * @returns {Promise<boolean>} True if service is available
+ */
+export async function checkServiceStatus() {
+  try {
+    const data = await apiRequest('/api/chat/status', { method: 'GET' })
+    return data.available
+  } catch {
+    return false
+  }
+}
+
+export default {
+  getAIResponse,
+  checkServiceStatus,
+  RateLimitError,
+  ValidationError
 }

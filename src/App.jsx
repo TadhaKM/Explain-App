@@ -1,18 +1,30 @@
-import { useState } from 'react'
+/**
+ * ELI5 Chatbot - Main App Component
+ *
+ * SECURITY: API key is no longer handled client-side.
+ * All API calls go through our secure backend server.
+ */
+
+import { useState, useEffect } from 'react'
 import ChatInterface from './components/ChatInterface'
 import AgeSelector from './components/AgeSelector'
-import ApiKeyInput from './components/ApiKeyInput'
+import ServiceStatus from './components/ServiceStatus'
+import { checkServiceStatus } from './utils/api'
 import './App.css'
 
 function App() {
   const [ageLevel, setAgeLevel] = useState(5)
-  const [apiKey, setApiKey] = useState('')
-  const [isApiKeySet, setIsApiKeySet] = useState(false)
+  const [serviceAvailable, setServiceAvailable] = useState(null) // null = checking
 
-  const handleApiKeySubmit = (key) => {
-    setApiKey(key)
-    setIsApiKeySet(true)
-  }
+  // Check if backend service is available on mount
+  useEffect(() => {
+    async function checkStatus() {
+      const available = await checkServiceStatus()
+      setServiceAvailable(available)
+    }
+
+    checkStatus()
+  }, [])
 
   return (
     <div className="app">
@@ -25,12 +37,20 @@ function App() {
         <p className="subtitle">Ask anything - get simple, friendly answers!</p>
       </header>
 
-      {!isApiKeySet ? (
-        <ApiKeyInput onSubmit={handleApiKeySubmit} />
+      {serviceAvailable === null ? (
+        // Loading state
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Connecting to service...</p>
+        </div>
+      ) : serviceAvailable === false ? (
+        // Service unavailable
+        <ServiceStatus />
       ) : (
+        // Main app
         <main className="app-main">
           <AgeSelector ageLevel={ageLevel} setAgeLevel={setAgeLevel} />
-          <ChatInterface ageLevel={ageLevel} apiKey={apiKey} />
+          <ChatInterface ageLevel={ageLevel} />
         </main>
       )}
 

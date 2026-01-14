@@ -10,16 +10,28 @@ An AI-powered chatbot that explains anything in simple, friendly terms - perfect
   - Like I'm 15 - Teen-friendly explanations
   - Normal - Full, detailed explanations
 
-- **Interactive chat interface**: Friendly, colorful UI with emojis
+- **Interactive chat interface**: Friendly, colorful UI
 - **Re-explain button**: Get an even simpler explanation
 - **Example button**: Request real-world examples
 - **Suggested questions**: Quick-start prompts to get you going
+
+## Security Features
+
+This application is built with security as a priority:
+
+- **Secure API Key Handling**: API keys are stored server-side only, never exposed to the browser
+- **Rate Limiting**: IP and session-based rate limiting prevents abuse
+- **Input Validation**: Strict schema-based validation with Zod
+- **Security Headers**: Helmet.js for XSS, clickjacking, and MIME sniffing protection
+- **CORS Protection**: Strict origin validation
+
+See [SECURITY.md](SECURITY.md) for full details.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 16+ installed
+- Node.js 18+ installed
 - An OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
 
 ### Installation
@@ -35,16 +47,24 @@ An AI-powered chatbot that explains anything in simple, friendly terms - perfect
    npm install
    ```
 
-3. Start the development server:
+3. Create environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Edit `.env` and add your OpenAI API key:
+   ```
+   OPENAI_API_KEY=sk-your-api-key-here
+   ```
+
+5. Start the development servers (frontend + backend):
    ```bash
    npm run dev
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-5. Enter your OpenAI API key when prompted (it stays in your browser only)
-
-6. Start asking questions!
+7. Start asking questions!
 
 ## Usage
 
@@ -64,42 +84,70 @@ An AI-powered chatbot that explains anything in simple, friendly terms - perfect
 
 ## Tech Stack
 
+### Frontend
 - **React 18** - UI framework
 - **Vite** - Build tool and dev server
+
+### Backend
+- **Express.js** - Web server
+- **Helmet** - Security headers
+- **express-rate-limit** - Rate limiting
+- **Zod** - Schema validation
 - **OpenAI API** - GPT-3.5-turbo for intelligent responses
-- **CSS3** - Modern styling with gradients and animations
 
 ## Project Structure
 
 ```
-src/
-  components/
-    AgeSelector.jsx    # Age level selection buttons
-    AgeSelector.css
-    ApiKeyInput.jsx    # API key entry form
-    ApiKeyInput.css
-    ChatInterface.jsx  # Main chat component
-    ChatInterface.css
-    Message.jsx        # Individual message display
-  utils/
-    api.js             # OpenAI API integration
-  App.jsx              # Main app component
-  App.css
-  main.jsx             # Entry point
-  index.css            # Global styles
+├── server/                    # Backend server
+│   ├── index.js              # Express server entry point
+│   ├── config/
+│   │   └── security.js       # Security configuration
+│   ├── middleware/
+│   │   ├── rateLimiter.js    # Rate limiting middleware
+│   │   └── validator.js      # Input validation middleware
+│   └── routes/
+│       └── chat.js           # Chat API routes
+├── src/                       # Frontend React app
+│   ├── components/
+│   │   ├── AgeSelector.jsx   # Age level selection
+│   │   ├── ChatInterface.jsx # Main chat component
+│   │   ├── Message.jsx       # Individual message
+│   │   └── ServiceStatus.jsx # Service status display
+│   ├── utils/
+│   │   └── api.js            # Frontend API client
+│   ├── App.jsx               # Main app component
+│   └── main.jsx              # Entry point
+├── .env.example              # Environment template
+├── SECURITY.md               # Security documentation
+└── package.json
 ```
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OPENAI_API_KEY` | Yes | Your OpenAI API key |
+| `PORT` | No | Backend server port (default: 3001) |
+| `NODE_ENV` | No | `development` or `production` |
+| `ALLOWED_ORIGINS` | No | CORS allowed origins |
 
 ## Building for Production
 
-```bash
-npm run build
-```
+1. Build the frontend:
+   ```bash
+   npm run build
+   ```
 
-The built files will be in the `dist/` folder.
+2. Start the production server:
+   ```bash
+   NODE_ENV=production npm start
+   ```
 
-## Privacy
+## Security
 
-Your OpenAI API key is stored only in your browser's memory and is never sent to any server other than OpenAI's API.
+Your OpenAI API key is stored **only on the server** and is never exposed to the browser. All API requests are proxied through the secure backend server.
+
+For full security documentation, see [SECURITY.md](SECURITY.md).
 
 ## License
 

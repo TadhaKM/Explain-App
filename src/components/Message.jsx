@@ -1,21 +1,26 @@
-import { useState } from 'react'
+/**
+ * Message Component
+ *
+ * Displays individual chat messages with action buttons.
+ *
+ * SECURITY:
+ * - Content is rendered via React which escapes HTML by default (XSS protection)
+ * - No dangerouslySetInnerHTML used
+ */
 
-function Message({ message, onReExplain, onExampleClick, isLatestBotMessage, isLoading }) {
-  const { type, content, isError } = message
-  const [lastQuestion] = useState(content)
+function Message({ message, onReExplain, onExampleClick, isLatestBotMessage, isLoading, isRateLimited }) {
+  const { type, content, isError, originalQuestion } = message
 
   const avatar = type === 'user' ? '🙋' : '🧒'
 
-  // Extract the original question from bot messages for re-explain
-  const extractQuestion = () => {
-    // Find the user message content (simplified approach - use the message before)
-    return lastQuestion
-  }
+  // Use originalQuestion if available, otherwise fall back to content
+  const questionForActions = originalQuestion || content
 
   return (
     <div className={`message ${type}-message`}>
       <div className="message-avatar">{avatar}</div>
       <div className={`message-content ${isError ? 'error' : ''}`}>
+        {/* Content is safely rendered - React escapes by default */}
         <p>{content}</p>
 
         {/* Show action buttons for bot messages */}
@@ -23,15 +28,17 @@ function Message({ message, onReExplain, onExampleClick, isLatestBotMessage, isL
           <div className="message-actions">
             <button
               className="action-btn"
-              onClick={() => onReExplain(content)}
-              disabled={isLoading}
+              onClick={() => onReExplain(questionForActions)}
+              disabled={isLoading || isRateLimited}
+              title={isRateLimited ? 'Please wait before making another request' : 'Get an even simpler explanation'}
             >
               🔄 Even simpler
             </button>
             <button
               className="action-btn"
-              onClick={() => onExampleClick(content)}
-              disabled={isLoading}
+              onClick={() => onExampleClick(questionForActions)}
+              disabled={isLoading || isRateLimited}
+              title={isRateLimited ? 'Please wait before making another request' : 'Get a real-world example'}
             >
               💡 Give example
             </button>
