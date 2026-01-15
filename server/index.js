@@ -28,6 +28,9 @@ import { securityConfig } from './config/security.js'
 // Import routes
 import chatRoutes from './routes/chat.js'
 
+// Import AI provider utilities
+import { getActiveProvider, isAIAvailable } from './providers/ai.js'
+
 // Load environment variables from .env file
 // SECURITY: API keys must be in .env, never in code
 dotenv.config()
@@ -205,47 +208,70 @@ app.use((err, req, res, next) => {
 
 /**
  * Validate required environment variables before starting
- * SECURITY: Fail fast if API key is missing
+ * SECURITY: Fail fast if no AI provider is configured
+ *
+ * Supports:
+ * - OpenAI (OPENAI_API_KEY)
+ * - Google Gemini (GEMINI_API_KEY)
  */
 function validateEnvironment() {
-  const required = ['OPENAI_API_KEY']
-  const missing = required.filter(key => !process.env[key])
+  const hasOpenAI = !!process.env.OPENAI_API_KEY
+  const hasGemini = !!process.env.GEMINI_API_KEY
 
-  if (missing.length > 0) {
+  // At least one AI provider must be configured
+  if (!hasOpenAI && !hasGemini) {
     console.error('='.repeat(60))
-    console.error('SECURITY ERROR: Missing required environment variables:')
-    missing.forEach(key => console.error(`  - ${key}`))
+    console.error('CONFIGURATION ERROR: No AI provider configured!')
     console.error('')
-    console.error('Please create a .env file with these variables.')
+    console.error('Please set at least one of these in your .env file:')
+    console.error('  - OPENAI_API_KEY (from https://platform.openai.com/api-keys)')
+    console.error('  - GEMINI_API_KEY (from https://aistudio.google.com/app/apikey)')
+    console.error('')
     console.error('See .env.example for reference.')
     console.error('='.repeat(60))
     process.exit(1)
   }
 
-  // SECURITY: Validate API key format (basic check)
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey.startsWith('sk-') || apiKey.length < 20) {
-    console.error('SECURITY ERROR: OPENAI_API_KEY appears to be invalid')
-    process.exit(1)
+  // Validate OpenAI key format if provided
+  if (hasOpenAI) {
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey.startsWith('sk-') || apiKey.length < 20) {
+      console.error('WARNING: OPENAI_API_KEY appears to be invalid (should start with "sk-")')
+    }
+  }
+
+  // Validate Gemini key format if provided (basic length check)
+  if (hasGemini) {
+    const apiKey = process.env.GEMINI_API_KEY
+    if (apiKey.length < 20) {
+      console.error('WARNING: GEMINI_API_KEY appears to be invalid')
+    }
   }
 }
 
 validateEnvironment()
 
 app.listen(PORT, () => {
+  const activeProvider = getActiveProvider()
+  const providerDisplay = {
+    openai: 'OpenAI (GPT)',
+    gemini: 'Google Gemini'
+  }
+
   console.log('')
   console.log('='.repeat(60))
   console.log('  ELI5 Chatbot Server - SECURE MODE')
   console.log('='.repeat(60))
   console.log(`  Server running on port ${PORT}`)
   console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`)
+  console.log(`  AI Provider: ${providerDisplay[activeProvider] || 'None'}`)
   console.log('')
   console.log('  Security features enabled:')
   console.log('    - Helmet security headers')
   console.log('    - CORS origin validation')
   console.log('    - Rate limiting (IP + session)')
   console.log('    - Input validation & sanitization')
-  console.log('    - API key secured server-side')
+  console.log('    - API keys secured server-side')
   console.log('='.repeat(60))
   console.log('')
 })

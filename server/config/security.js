@@ -76,22 +76,25 @@ export const securityConfig = {
   },
 
   /**
-   * OpenAI API Configuration
+   * AI Provider Configuration
    *
-   * Settings for OpenAI API calls
+   * Settings for AI API calls (supports OpenAI and Gemini)
    */
-  openai: {
-    // Model to use
-    model: 'gpt-3.5-turbo',
-
-    // Maximum tokens in response
+  ai: {
+    // Shared settings across providers
     maxTokens: 500,
-
-    // Temperature for response randomness
     temperature: 0.7,
+    timeout: 30000, // 30 seconds
 
-    // Request timeout
-    timeout: 30000 // 30 seconds
+    // OpenAI-specific settings
+    openai: {
+      model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo'
+    },
+
+    // Google Gemini-specific settings
+    gemini: {
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+    }
   },
 
   /**

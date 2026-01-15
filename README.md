@@ -32,7 +32,9 @@ See [SECURITY.md](SECURITY.md) for full details.
 ### Prerequisites
 
 - Node.js 18+ installed
-- An OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
+- **One of the following API keys:**
+  - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
+  - Google AI Studio API key ([Get one here](https://aistudio.google.com/app/apikey))
 
 ### Installation
 
@@ -52,9 +54,16 @@ See [SECURITY.md](SECURITY.md) for full details.
    cp .env.example .env
    ```
 
-4. Edit `.env` and add your OpenAI API key:
+4. Edit `.env` and add your API key (choose one):
+
+   **Option A: OpenAI**
    ```
-   OPENAI_API_KEY=sk-your-api-key-here
+   OPENAI_API_KEY=sk-your-openai-api-key-here
+   ```
+
+   **Option B: Google Gemini**
+   ```
+   GEMINI_API_KEY=your-gemini-api-key-here
    ```
 
 5. Start the development servers (frontend + backend):
@@ -93,7 +102,10 @@ See [SECURITY.md](SECURITY.md) for full details.
 - **Helmet** - Security headers
 - **express-rate-limit** - Rate limiting
 - **Zod** - Schema validation
-- **OpenAI API** - GPT-3.5-turbo for intelligent responses
+
+### AI Providers (choose one)
+- **OpenAI** - GPT-3.5-turbo, GPT-4, GPT-4o
+- **Google Gemini** - Gemini 1.5 Flash, Gemini 1.5 Pro
 
 ## Project Structure
 
@@ -105,6 +117,8 @@ See [SECURITY.md](SECURITY.md) for full details.
 │   ├── middleware/
 │   │   ├── rateLimiter.js    # Rate limiting middleware
 │   │   └── validator.js      # Input validation middleware
+│   ├── providers/
+│   │   └── ai.js             # AI provider abstraction (OpenAI/Gemini)
 │   └── routes/
 │       └── chat.js           # Chat API routes
 ├── src/                       # Frontend React app
@@ -126,10 +140,16 @@ See [SECURITY.md](SECURITY.md) for full details.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OPENAI_API_KEY` | Yes | Your OpenAI API key |
+| `OPENAI_API_KEY` | * | Your OpenAI API key |
+| `GEMINI_API_KEY` | * | Your Google AI Studio API key |
+| `AI_PROVIDER` | No | Force provider: `openai` or `gemini` (auto-detected if not set) |
+| `OPENAI_MODEL` | No | OpenAI model (default: `gpt-3.5-turbo`) |
+| `GEMINI_MODEL` | No | Gemini model (default: `gemini-1.5-flash`) |
 | `PORT` | No | Backend server port (default: 3001) |
 | `NODE_ENV` | No | `development` or `production` |
 | `ALLOWED_ORIGINS` | No | CORS allowed origins |
+
+\* At least one API key is required (OPENAI_API_KEY or GEMINI_API_KEY)
 
 ## Building for Production
 
@@ -145,7 +165,7 @@ See [SECURITY.md](SECURITY.md) for full details.
 
 ## Security
 
-Your OpenAI API key is stored **only on the server** and is never exposed to the browser. All API requests are proxied through the secure backend server.
+Your API keys (OpenAI or Gemini) are stored **only on the server** and are never exposed to the browser. All API requests are proxied through the secure backend server.
 
 For full security documentation, see [SECURITY.md](SECURITY.md).
 
