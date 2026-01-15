@@ -211,25 +211,36 @@ app.use((err, req, res, next) => {
  * SECURITY: Fail fast if no AI provider is configured
  *
  * Supports:
+ * - Anthropic Claude (ANTHROPIC_API_KEY) - Recommended
  * - OpenAI (OPENAI_API_KEY)
  * - Google Gemini (GEMINI_API_KEY)
  */
 function validateEnvironment() {
   const hasOpenAI = !!process.env.OPENAI_API_KEY
   const hasGemini = !!process.env.GEMINI_API_KEY
+  const hasClaude = !!process.env.ANTHROPIC_API_KEY
 
   // At least one AI provider must be configured
-  if (!hasOpenAI && !hasGemini) {
+  if (!hasOpenAI && !hasGemini && !hasClaude) {
     console.error('='.repeat(60))
     console.error('CONFIGURATION ERROR: No AI provider configured!')
     console.error('')
     console.error('Please set at least one of these in your .env file:')
+    console.error('  - ANTHROPIC_API_KEY (from https://console.anthropic.com/settings/keys)')
     console.error('  - OPENAI_API_KEY (from https://platform.openai.com/api-keys)')
     console.error('  - GEMINI_API_KEY (from https://aistudio.google.com/app/apikey)')
     console.error('')
     console.error('See .env.example for reference.')
     console.error('='.repeat(60))
     process.exit(1)
+  }
+
+  // Validate Claude key format if provided
+  if (hasClaude) {
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey.startsWith('sk-ant-') || apiKey.length < 20) {
+      console.error('WARNING: ANTHROPIC_API_KEY appears to be invalid (should start with "sk-ant-")')
+    }
   }
 
   // Validate OpenAI key format if provided
@@ -254,6 +265,7 @@ validateEnvironment()
 app.listen(PORT, () => {
   const activeProvider = getActiveProvider()
   const providerDisplay = {
+    claude: 'Anthropic Claude',
     openai: 'OpenAI (GPT)',
     gemini: 'Google Gemini'
   }

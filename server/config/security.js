@@ -78,7 +78,7 @@ export const securityConfig = {
   /**
    * AI Provider Configuration
    *
-   * Settings for AI API calls (supports OpenAI and Gemini)
+   * Settings for AI API calls (supports OpenAI, Gemini, and Claude)
    */
   ai: {
     // Shared settings across providers
@@ -94,6 +94,11 @@ export const securityConfig = {
     // Google Gemini-specific settings
     gemini: {
       model: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+    },
+
+    // Anthropic Claude-specific settings
+    claude: {
+      model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022'
     }
   },
 

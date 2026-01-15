@@ -4,12 +4,14 @@
  * Supports multiple AI providers:
  * - OpenAI (GPT-3.5-turbo, GPT-4)
  * - Google AI Studio (Gemini Pro, Gemini Flash)
+ * - Anthropic Claude (Claude 3.5 Sonnet, Claude 3 Haiku)
  *
  * SECURITY: All API keys are stored server-side only
  */
 
 import OpenAI from 'openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import Anthropic from '@anthropic-ai/sdk'
 import { securityConfig } from '../config/security.js'
 
 // =============================================================================
@@ -18,6 +20,7 @@ import { securityConfig } from '../config/security.js'
 
 let openaiClient = null
 let geminiClient = null
+let claudeClient = null
 
 /**
  * Get OpenAI client (singleton)
@@ -40,6 +43,18 @@ function getGeminiClient() {
     geminiClient = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
   }
   return geminiClient
+}
+
+/**
+ * Get Anthropic Claude client (singleton)
+ */
+function getClaudeClient() {
+  if (!claudeClient && process.env.ANTHROPIC_API_KEY) {
+    claudeClient = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY
+    })
+  }
+  return claudeClient
 }
 
 // =============================================================================
@@ -194,18 +209,58 @@ async function getGeminiResponse(systemPrompt, userPrompt) {
 }
 
 // =============================================================================
+// CLAUDE PROVIDER
+// =============================================================================
+
+/**
+ * Get response from Anthropic Claude
+ *
+ * @param {string} systemPrompt - System instruction
+ * @param {string} userPrompt - User's question
+ * @returns {Promise<string>} AI response
+ */
+async function getClaudeResponse(systemPrompt, userPrompt) {
+  const client = getClaudeClient()
+
+  if (!client) {
+    throw new Error('Claude client not configured')
+  }
+
+  const message = await client.messages.create({
+    model: securityConfig.ai.claude.model,
+    max_tokens: securityConfig.ai.maxTokens,
+    system: systemPrompt,
+    messages: [
+      { role: 'user', content: userPrompt }
+    ]
+  })
+
+  const response = message.content[0]?.text
+
+  if (!response) {
+    throw new Error('No response from Claude')
+  }
+
+  return response
+}
+
+// =============================================================================
 // UNIFIED API
 // =============================================================================
 
 /**
  * Get the currently configured AI provider
  *
- * @returns {'openai' | 'gemini'} Active provider name
+ * @returns {'openai' | 'gemini' | 'claude' | null} Active provider name
  */
 export function getActiveProvider() {
   const configuredProvider = process.env.AI_PROVIDER?.toLowerCase()
 
   // If explicitly configured, use that
+  if (configuredProvider === 'claude' && process.env.ANTHROPIC_API_KEY) {
+    return 'claude'
+  }
+
   if (configuredProvider === 'gemini' && process.env.GEMINI_API_KEY) {
     return 'gemini'
   }
@@ -214,7 +269,11 @@ export function getActiveProvider() {
     return 'openai'
   }
 
-  // Auto-detect based on available keys
+  // Auto-detect based on available keys (priority: Claude > Gemini > OpenAI)
+  if (process.env.ANTHROPIC_API_KEY) {
+    return 'claude'
+  }
+
   if (process.env.GEMINI_API_KEY) {
     return 'gemini'
   }
@@ -247,7 +306,7 @@ export async function getAIResponse(question, ageLevel, isReExplain = false) {
   const provider = getActiveProvider()
 
   if (!provider) {
-    throw new Error('No AI provider configured. Set OPENAI_API_KEY or GEMINI_API_KEY.')
+    throw new Error('No AI provider configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY.')
   }
 
   const systemPrompt = getSystemPrompt(ageLevel, isReExplain)
@@ -257,7 +316,9 @@ export async function getAIResponse(question, ageLevel, isReExplain = false) {
 
   let response
 
-  if (provider === 'gemini') {
+  if (provider === 'claude') {
+    response = await getClaudeResponse(systemPrompt, userPrompt)
+  } else if (provider === 'gemini') {
     response = await getGeminiResponse(systemPrompt, userPrompt)
   } else {
     response = await getOpenAIResponse(systemPrompt, userPrompt)
@@ -344,8 +405,39 @@ export function handleProviderError(error, provider) {
     }
   }
 
+  // Claude errors
+  if (provider === 'claude') {
+    const errorMessage = error.message?.toLowerCase() || ''
+    const errorStatus = error.status || 0
+
+    if (errorStatus === 401 || errorMessage.includes('api key') || errorMessage.includes('authentication')) {
+      console.error('[CLAUDE_ERROR] Invalid API key')
+      return {
+        status: 500,
+        message: 'The AI service is temporarily unavailable'
+      }
+    }
+
+    if (errorStatus === 429 || errorMessage.includes('rate') || errorMessage.includes('quota')) {
+      console.warn('[CLAUDE_RATE_LIMIT] Claude rate limit exceeded')
+      return {
+        status: 503,
+        message: 'The AI service is busy. Please try again in a moment.',
+        retryAfter: 30
+      }
+    }
+
+    if (errorStatus === 500 || errorStatus === 503 || errorMessage.includes('overloaded')) {
+      console.error('[CLAUDE_ERROR] Claude service error:', error.message)
+      return {
+        status: 503,
+        message: 'The AI service is temporarily unavailable. Please try again later.'
+      }
+    }
+  }
+
   // Generic error
-  console.error(`[${provider.toUpperCase()}_ERROR]`, error.message)
+  console.error(`[${(provider || 'UNKNOWN').toUpperCase()}_ERROR]`, error.message)
   return {
     status: 500,
     message: 'An error occurred. Please try again.'

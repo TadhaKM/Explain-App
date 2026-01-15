@@ -33,6 +33,7 @@ See [SECURITY.md](SECURITY.md) for full details.
 
 - Node.js 18+ installed
 - **One of the following API keys:**
+  - Anthropic Claude API key ([Get one here](https://console.anthropic.com/settings/keys)) - Recommended
   - OpenAI API key ([Get one here](https://platform.openai.com/api-keys))
   - Google AI Studio API key ([Get one here](https://aistudio.google.com/app/apikey))
 
@@ -56,12 +57,17 @@ See [SECURITY.md](SECURITY.md) for full details.
 
 4. Edit `.env` and add your API key (choose one):
 
-   **Option A: OpenAI**
+   **Option A: Anthropic Claude (Recommended)**
+   ```
+   ANTHROPIC_API_KEY=sk-ant-your-anthropic-api-key-here
+   ```
+
+   **Option B: OpenAI**
    ```
    OPENAI_API_KEY=sk-your-openai-api-key-here
    ```
 
-   **Option B: Google Gemini**
+   **Option C: Google Gemini**
    ```
    GEMINI_API_KEY=your-gemini-api-key-here
    ```
@@ -104,6 +110,7 @@ See [SECURITY.md](SECURITY.md) for full details.
 - **Zod** - Schema validation
 
 ### AI Providers (choose one)
+- **Anthropic Claude** - Claude 3.5 Sonnet, Claude 3 Haiku, Claude 3 Opus (Recommended)
 - **OpenAI** - GPT-3.5-turbo, GPT-4, GPT-4o
 - **Google Gemini** - Gemini 1.5 Flash, Gemini 1.5 Pro
 
@@ -140,16 +147,18 @@ See [SECURITY.md](SECURITY.md) for full details.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
+| `ANTHROPIC_API_KEY` | * | Your Anthropic Claude API key |
 | `OPENAI_API_KEY` | * | Your OpenAI API key |
 | `GEMINI_API_KEY` | * | Your Google AI Studio API key |
-| `AI_PROVIDER` | No | Force provider: `openai` or `gemini` (auto-detected if not set) |
+| `AI_PROVIDER` | No | Force provider: `claude`, `openai`, or `gemini` (auto-detected if not set) |
+| `CLAUDE_MODEL` | No | Claude model (default: `claude-3-5-sonnet-20241022`) |
 | `OPENAI_MODEL` | No | OpenAI model (default: `gpt-3.5-turbo`) |
 | `GEMINI_MODEL` | No | Gemini model (default: `gemini-1.5-flash`) |
 | `PORT` | No | Backend server port (default: 3001) |
 | `NODE_ENV` | No | `development` or `production` |
 | `ALLOWED_ORIGINS` | No | CORS allowed origins |
 
-\* At least one API key is required (OPENAI_API_KEY or GEMINI_API_KEY)
+\* At least one API key is required (ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY)
 
 ## Building for Production
 
